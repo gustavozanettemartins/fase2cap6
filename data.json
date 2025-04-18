@@ -1,0 +1,38 @@
+[
+    {
+        "id": 1,
+        "cultura": "Milho",
+        "area_plantada_ha": 50,
+        "prod_estimada_t": 500,
+        "prod_real_t": 430,
+        "data_colheita": "2024-04-09",
+        "obs": "Chuva intensa"
+    },
+    {
+        "id": 2,
+        "cultura": "Milho",
+        "area_plantada_ha": 20,
+        "prod_estimada_t": 300,
+        "prod_real_t": 270,
+        "data_colheita": "2024-10-12",
+        "obs": "Pragas"
+    },
+    {
+        "id": 3,
+        "cultura": "Milho",
+        "area_plantada_ha": 40,
+        "prod_estimada_t": 450,
+        "prod_real_t": 410,
+        "data_colheita": "2025-04-17",
+        "obs": "Colheita Tardia"
+    },
+    {
+        "id": 4,
+        "cultura": "Soja",
+        "area_plantada_ha": 40,
+        "prod_estimada_t": 450,
+        "prod_real_t": 410,
+        "data_colheita": "2025-04-17",
+        "obs": "Colheita Tardia"
+    }
+]
