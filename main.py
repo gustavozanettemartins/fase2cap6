@@ -11,6 +11,7 @@ from database import Database
 import json
 
 init(autoreset=True)
+DATABASE_CONN = None
 
 def abrir_imagem(caminho: str) -> None:
     sistema = platform.system()
@@ -163,15 +164,127 @@ def listar_perdas() -> None:
 
     wait_tela()
 
-def menu(db: Database = None) -> None:
-    try:
-        HarvestReport.load_from_json()
+def editar_perda() -> None:
+    limpar_tela()
+    print_menu("✏️ EDITAR OU DELETAR PERDA AGRÍCOLA\n")
 
+    try:
+        perdas = HarvestReport.all()
+        if not perdas:
+            print(Fore.YELLOW + "⚠️ Nenhuma perda registrada.")
+            wait_tela()
+            return
+
+        for perda in perdas:
+            print(Fore.GREEN + f"ID {perda.id}: {perda.cultura} - {perda.data_colheita.strftime('%d/%m/%Y')}")
+
+        escolha = input(Fore.YELLOW + "\n👉 Digite o ID da perda que deseja editar ou deletar: ").strip()
+        if not validar_int(escolha):
+            print(Fore.RED + "❌ ID inválido.")
+            return
+
+        id_escolhido = int(escolha)
+        perda = next((p for p in perdas if p.id == id_escolhido), None)
+
+        if not perda:
+            print(Fore.RED + f"❌ Nenhum registro encontrado com o ID {id_escolhido}.")
+            return
+
+        print_menu(f"Registro selecionado: {perda.cultura} em {perda.data_colheita.strftime('%d/%m/%Y')}")
+
+        acao = input(Fore.YELLOW + "👉 Deseja [E]ditar ou [D]eletar este registro? ").strip().lower()
+
+        if acao == "d":
+            confirmar = input(Fore.RED + "❗ Tem certeza que deseja deletar este registro? (s/n): ").strip().lower()
+            if confirmar == "s":
+                HarvestReport._data = [p for p in HarvestReport._data if p.id != id_escolhido]
+                print(Fore.GREEN + f"🗑️ Perda ID {id_escolhido} removida com sucesso.")
+            else:
+                print("❌ Exclusão cancelada.")
+        elif acao == "e":
+            print(Fore.CYAN + "\n🔧 Deixe o campo em branco para manter o valor atual.\n")
+
+            cultura = input(f"🪴 Cultura [{perda.cultura}]: ").strip() or perda.cultura
+            area_str = input(f"📏 Área plantada [{perda.area_plantada_ha}]: ").strip()
+            estimada_str = input(f"📦 Produção estimada [{perda.prod_estimada_t}]: ").strip()
+            real_str = input(f"📦 Produção real [{perda.prod_real_t}]: ").strip()
+            data_str = input(f"📅 Data da colheita [{perda.data_colheita.strftime('%d/%m/%Y')}]: ").strip()
+            obs = input(f"📝 Observações [{perda.obs or 'Nenhuma'}]: ").strip() or perda.obs
+
+            nova_area = float(area_str) if area_str else perda.area_plantada_ha
+            nova_estim = float(estimada_str) if estimada_str else perda.prod_estimada_t
+            nova_real = float(real_str) if real_str else perda.prod_real_t
+            nova_data = datetime.strptime(data_str, "%d/%m/%Y").date() if data_str else perda.data_colheita
+
+            HarvestReport._data = [p for p in HarvestReport._data if p.id != id_escolhido]
+
+            from core import HarvestLoss
+            novo = HarvestLoss(
+                id=id_escolhido,
+                cultura=cultura,
+                area_plantada_ha=nova_area,
+                prod_estimada_t=nova_estim,
+                prod_real_t=nova_real,
+                data_colheita=nova_data,
+                obs=obs
+            )
+            HarvestReport._data.append(novo)
+
+            print(Fore.GREEN + f"\n✅ Perda ID {id_escolhido} atualizada com sucesso!")
+        else:
+            print(Fore.RED + "❌ Ação inválida. Use 'e' para editar ou 'd' para deletar.")
+
+    except Exception as e:
+        logger.error(f"Erro ao editar ou deletar perda: {e}")
+        print(Fore.RED + "❌ Ocorreu um erro durante a operação.")
+
+    wait_tela()
+
+
+
+def load_data() -> None:
+    global DATABASE_CONN
+    try:
+        try:
+            db = Database()
+            DATABASE_CONN = db
+        except Exception as error:
+            logger.error(error)
+            db = None
+
+        if db is not None:
+            limpar_tela()
+            print_menu("🌿 CARREGAR DADOS 🌿")
+            print_menu("1. Carregar Pelo Json\n2. Carregar Pelo Oracle\n0. Sair")
+            response = input(Fore.YELLOW + "\n👉 Escolha uma opção: " + Style.RESET_ALL).strip()
+
+            if validar_int(response):
+                option = int(response)
+
+                if option == 1:
+                    HarvestReport.load_from_json()
+                elif option == 2:
+                    HarvestReport.load_from_db(db.read())
+                elif option == 0:
+                    ...
+                else:
+                    print(Fore.RED + "❌ Opção inválida." + Style.RESET_ALL)
+                    limpar_tela()
+            else:
+                logger.warning("A opção deve ser um número inteiro.")
+                input(Fore.YELLOW + "Pressione Enter para continuar...")
+        else:
+            HarvestReport.load_from_json()
+    except Exception as error:
+        logger.error(error)
+
+def menu() -> None:
+    try:
         while True:
             limpar_tela()
             print_menu("🌿 MENU PRINCIPAL 🌿")
-            print_menu("1. Registrar Perda\n2. Listar Perdas\n3. Exportar Dados\n4. Dados Estatísticos\n"
-                       "5. Registros Salvos\n0. Sair")
+            print_menu("1. Registrar Perda\n2. Listar Perdas\n3. Editar Perda\n4. Salvar Dados\n"
+                       "5. Dados Estatísticos\n6. Registros Salvos\n0. Sair")
             response = input(Fore.YELLOW + "\n👉 Escolha uma opção: " + Style.RESET_ALL).strip()
 
             if validar_int(response):
@@ -180,13 +293,18 @@ def menu(db: Database = None) -> None:
                 if option == 1:
                     registrar_perda()
                     wait_tela()
+
                 elif option == 2:
                     listar_perdas()
+
                 elif option == 3:
+                    editar_perda()
+
+                elif option == 4:
                     limpar_tela()
                     print_menu("🌿 SALVAR DADOS 🌿")
                     while True:
-                        if db is None:
+                        if DATABASE_CONN is None:
                             print_menu(
                                 "1. Salvar JSON\n0. Sair")
                             options = [1, 0]
@@ -201,10 +319,10 @@ def menu(db: Database = None) -> None:
                                 if option == 1:
                                     HarvestReport.export_to_json()
                                 elif option == 2:
-                                    HarvestReport.export_to_db(db)
+                                    HarvestReport.export_to_db(DATABASE_CONN)
                                 elif option == 3:
                                     HarvestReport.export_to_json()
-                                    HarvestReport.export_to_db(db)
+                                    HarvestReport.export_to_db(DATABASE_CONN)
                                 elif option == 0:
                                     break
                             else:
@@ -214,14 +332,17 @@ def menu(db: Database = None) -> None:
                             logger.warning("A opção deve ser um número inteiro.")
                             input(Fore.YELLOW + "Pressione Enter para continuar...")
 
-                elif option == 4:
-                    abrir_imagem(HarvestReport.get_statistics())
-                    wait_tela()
                 elif option == 5:
+                    path_img = HarvestReport.get_statistics()
+                    if path_img:
+                        abrir_imagem(path_img)
+                    wait_tela()
+
+                elif option == 6:
                     while True:
                         limpar_tela()
                         print_menu("🌿 REGISTROS SALVOS🌿")
-                        if db is None:
+                        if DATABASE_CONN is None:
                             print_menu(
                                 "1. Registros JSON\n0. Sair")
                             options = [1, 0]
@@ -240,7 +361,7 @@ def menu(db: Database = None) -> None:
                                         for item in registros:
                                             print(item)
                                 elif option == 2:
-                                    for item in db.read():
+                                    for item in DATABASE_CONN.read():
                                         print(item)
                                 elif option == 0:
                                     break
@@ -265,18 +386,23 @@ def menu(db: Database = None) -> None:
     except Exception as error:
         logger.error(error)
     finally:
+        if HarvestReport.updated():
+            resposta = input(
+                Fore.YELLOW +
+                "\n⚠️ Você tem alterações não salvas. Deseja sair sem salvar? (s/n): "
+                + Style.RESET_ALL).strip().lower()
+            if resposta != "s":
+                print("🔁 Retornando ao menu para que você possa salvar.")
+                menu()
+                return
         logger.info("Saindo do programa...")
 
 def main():
     try:
         db_menu()
         limpar_tela()
-        try:
-            db = Database()
-        except Exception as error:
-            logger.error(error)
-            db = None
-        menu(db)
+        load_data()
+        menu()
     except Exception as error:
         logger.error(error)
 

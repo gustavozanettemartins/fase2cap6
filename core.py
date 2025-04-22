@@ -7,6 +7,7 @@ from logger_config import logger
 import matplotlib.pyplot as plt
 from collections import defaultdict
 from database import Database
+import hashlib
 
 @dataclass(frozen=True)
 class HarvestLoss:
@@ -46,8 +47,20 @@ class HarvestLoss:
 
 
 class HarvestReport:
+    _original_hash = None
     _data: List[HarvestLoss] = []
     _id_counter: int = 1
+
+    @classmethod
+    def _gerar_hash(cls) -> str:
+        """Gera hash do estado atual dos dados"""
+        data_str = json.dumps([loss.dict for loss in cls._data], sort_keys=True)
+        return hashlib.md5(data_str.encode("utf-8")).hexdigest()
+
+    @classmethod
+    def updated(cls) -> bool:
+        """Verifica se os dados em memória foram alterados desde o carregamento"""
+        return cls._original_hash != cls._gerar_hash()
 
     @classmethod
     def register_loss(cls,
@@ -125,7 +138,31 @@ class HarvestReport:
         if cls._data:
             cls._id_counter = max(loss.id for loss in cls._data) + 1
 
+        cls._original_hash = cls._gerar_hash()
         logger.info(f"✅  {len(cls._data)} registros carregados de '{path}'.")
+
+    @classmethod
+    def load_from_db(cls, data: list) -> None:
+        cls._data.clear()
+
+        for item in data:
+            loss = HarvestLoss(
+                id=item[0],
+                cultura=item[1],
+                area_plantada_ha=item[2],
+                prod_estimada_t=item[3],
+                prod_real_t=item[4],
+                data_colheita=item[5],
+                obs=item[6] if not None else ""
+            )
+            cls._data.append(loss)
+
+        # Atualiza o _id_counter para continuar a contagem
+        if cls._data:
+            cls._id_counter = max(loss.id for loss in cls._data) + 1
+
+        cls._original_hash = cls._gerar_hash()
+        logger.info(f"✅  {len(cls._data)} registros carregados do Oracle.")
 
     @classmethod
     def export_to_json(cls, path: str = "data.json") -> None:
