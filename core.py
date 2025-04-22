@@ -6,6 +6,7 @@ import os
 from logger_config import logger
 import matplotlib.pyplot as plt
 from collections import defaultdict
+from database import Database
 
 @dataclass(frozen=True)
 class HarvestLoss:
@@ -136,6 +137,32 @@ class HarvestReport:
                 ensure_ascii=False
             )
         print(f"✅ {len(cls._data)} registros exportados para '{path}'.")
+
+    @classmethod
+    def export_to_db(cls, db_instance: Database) -> None:
+        if not cls._data:
+            print("⚠️ Nenhum dado em memória para exportar.")
+            return
+
+        sucesso = 0
+        falha = 0
+
+        for perda in cls._data:
+            try:
+                db_instance.create(
+                    cultura=perda.cultura,
+                    area=perda.area_plantada_ha,
+                    estimada=perda.prod_estimada_t,
+                    real=perda.prod_real_t,
+                    data_colheita=perda.data_colheita,
+                    obs=perda.obs
+                )
+                sucesso += 1
+            except Exception as e:
+                print(f"❌ Falha ao exportar ID {perda.id}: {e}")
+                falha += 1
+
+        print(f"✅ Exportação finalizada. Sucesso: {sucesso} | Falhas: {falha}")
 
     @classmethod
     def get_statistics(cls, path: str = "perdas_por_cultura.png") -> None | str:

@@ -34,5 +34,14 @@
         "prod_real_t": 410,
         "data_colheita": "2025-04-17",
         "obs": "Colheita Tardia"
+    },
+    {
+        "id": 5,
+        "cultura": "Feijão",
+        "area_plantada_ha": 50.0,
+        "prod_estimada_t": 470.0,
+        "prod_real_t": 420.0,
+        "data_colheita": "2021-01-11",
+        "obs": ""
     }
 ]
